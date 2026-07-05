@@ -287,11 +287,8 @@ optimizer = optim.Adam(model.parameters(), lr=0.001)#学习率为 0.001（可调
 # 第三步：训练循环
 
 # %%
-from torch.cuda.amp import GradScaler, autocast
-
 num_epochs = 10
 loss_history = []
-scaler = GradScaler()  # 混合精度（RX 6600M 8GB 加速约 1.5-2x）
 
 for epoch in range(num_epochs):
     model.train()
@@ -301,16 +298,12 @@ for epoch in range(num_epochs):
         images = images.to(device)
         labels = labels.to(device)
 
-        # forward pass（混合精度）
-        with autocast():
-            outputs = model(images)
-            loss = criterion(outputs, labels)
+        outputs = model(images)
+        loss = criterion(outputs, labels)
 
-        # backward pass
         optimizer.zero_grad()
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
+        loss.backward()
+        optimizer.step()
 
         running_loss += loss.item()
 
@@ -482,8 +475,6 @@ class SimpleDetectionCNN(nn.Module):
 # intialize model
 
 # %%
-from torch.cuda.amp import GradScaler, autocast
-
 print("使用设备:", device)
 
 # 分类 Loss
@@ -498,9 +489,6 @@ print(model)
 
 # 优化器
 optimizer = optim.Adam(model.parameters(), lr=0.001)
-
-# 混合精度 scaler
-scaler = GradScaler()
 
 # %% [markdown]
 # traning model
@@ -518,18 +506,14 @@ for epoch in range(num_epochs):
         labels = labels.to(device)
         bboxes = bboxes.to(device)
 
-        # forward pass（混合精度）
-        with autocast():
-            cls_out, bbox_out = model(images)
-            cls_loss = cls_criterion(cls_out, labels)
-            bbox_loss = bbox_criterion(bbox_out, bboxes)
-            total_loss = cls_loss + bbox_loss
+        cls_out, bbox_out = model(images)
+        cls_loss = cls_criterion(cls_out, labels)
+        bbox_loss = bbox_criterion(bbox_out, bboxes)
+        total_loss = cls_loss + bbox_loss
 
-        # backward pass
         optimizer.zero_grad()
-        scaler.scale(total_loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
+        total_loss.backward()
+        optimizer.step()
 
         running_loss += total_loss.item()
 
@@ -919,7 +903,6 @@ print("验证集:", len(val_dataset))
 from torchvision import models
 import torch.nn as nn
 import torch.optim as optim
-from torch.cuda.amp import GradScaler, autocast
 from torchvision.models import ResNet18_Weights
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -931,14 +914,13 @@ model = model.to(device)
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.0001)
-scaler = GradScaler()
 
 print("模型加载完成")
 print(f"输出类别数: {len(classes)}")
 
-# %%
-train
-from tqdm import tqdm
+# %% [markdown]
+# train
+# from tqdm import tqdm
 
 # %%
 loss_history = []
@@ -955,14 +937,12 @@ for epoch in range(num_epochs):
         images = images.to(device)
         labels = labels.to(device)
 
-        with autocast():
-            outputs = model(images)
-            loss = criterion(outputs, labels)
+        outputs = model(images)
+        loss = criterion(outputs, labels)
 
         optimizer.zero_grad()
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
+        loss.backward()
+        optimizer.step()
 
         running_loss += loss.item()
 
@@ -1073,7 +1053,7 @@ val_dataset = NIHClassDataset(
     transform_val
 )
 
-# RX 6600M 8GB：batch_size 调到 64
+# RX 6600M 8GB：batch 调到 64
 train_loader = DataLoader(
     train_dataset,
     batch_size=64,
@@ -1100,7 +1080,6 @@ model = model.to(device)
 
 optimizer = optim.Adam(model.parameters(), lr=0.0001)
 criterion = nn.CrossEntropyLoss()
-scaler = GradScaler()
 
 # 训练
 loss_history = []
@@ -1115,14 +1094,12 @@ for epoch in range(num_epochs):
         images = images.to(device)
         labels = labels.to(device)
 
-        with autocast():
-            outputs = model(images)
-            loss = criterion(outputs, labels)
+        outputs = model(images)
+        loss = criterion(outputs, labels)
 
         optimizer.zero_grad()
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
+        loss.backward()
+        optimizer.step()
 
         running_loss += loss.item()
 
