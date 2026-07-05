@@ -17,10 +17,15 @@ import pandas as pd
 
 # %%
 import torch
-print(torch.__version__)           # 应包含 +rocm 字样
-print(torch.cuda.is_available())   # ROCm 兼容 CUDA API，应返回 True
-print(torch.cuda.device_count())   # 应显示你的 GPU 数量
-print(torch.cuda.get_device_name(0))  # 显示 GPU 型号
+
+# 修复 RDNA2 (RX 6600M) MIOpen 兼容性问题
+torch.backends.cudnn.enabled = False
+
+print('PyTorch:', torch.__version__)
+print('GPU available:', torch.cuda.is_available())
+print('Device count:', torch.cuda.device_count())
+if torch.cuda.is_available():
+    print('GPU:', torch.cuda.get_device_name(0))
 
 # %%
 df = pd.read_csv("F:/python/nih/BBox_List_2017.csv")
@@ -239,7 +244,9 @@ print("Batch labels:", labels)
 import torch
 import torch.nn as nn
 
-# 检测 GPU（ROCm / CUDA）
+# ROCm 下禁用 MIOpen（RDNA2 兼容性修复）
+torch.backends.cudnn.enabled = False
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("使用设备:", device)
 
@@ -904,6 +911,10 @@ from torchvision import models
 import torch.nn as nn
 import torch.optim as optim
 from torchvision.models import ResNet18_Weights
+
+# ROCm 下禁用 MIOpen（RDNA2 兼容性修复）
+import torch
+torch.backends.cudnn.enabled = False
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("使用设备:", device)
