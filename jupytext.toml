@@ -1,0 +1,2 @@
+# Jupytext config — 保存 .ipynb 时自动同步生成 .py (percent format)
+formats = "ipynb,py:percent"
