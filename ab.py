@@ -7,9 +7,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.4
 #   kernelspec:
-#     display_name: Python 3.12 (ROCm)
+#     display_name: comfy
 #     language: python
-#     name: py312-rocm
+#     name: python3
 # ---
 
 # %%
@@ -786,6 +786,9 @@ for _, row in df_subset.iterrows():
 plt.title("Green = GT | Red = Prediction")
 plt.show()
 
+# %% [markdown]
+# classffication
+
 # %%
 import pandas as pd
 import os
@@ -930,8 +933,54 @@ print("模型加载完成")
 print(f"输出类别数: {len(classes)}")
 
 # %% [markdown]
-# train
-# from tqdm import tqdm
+# loss_history = []
+# acc_history = []
+#
+# num_epochs = 3
+#
+# for epoch in range(num_epochs):
+#     # 训练
+#     model.train()
+#     running_loss = 0.0
+#
+#     for i, (images, labels) in enumerate(train_loader):
+#         images = images.to(device)
+#         labels = labels.to(device)
+#
+#         outputs = model(images)
+#         loss = criterion(outputs, labels)
+#
+#         optimizer.zero_grad()
+#         loss.backward()
+#         optimizer.step()
+#
+#         running_loss += loss.item()
+#
+#     avg_loss = running_loss / len(train_loader)
+#     loss_history.append(avg_loss)
+#
+#     # 验证
+#     model.eval()
+#     correct = 0
+#     total = 0
+#
+#     with torch.no_grad():
+#         for images, labels in val_loader:
+#             images = images.to(device)
+#             labels = labels.to(device)
+#             outputs = model(images)
+#             _, predicted = torch.max(outputs, 1)
+#             total += labels.size(0)
+#             correct += (predicted == labels).sum().item()
+#
+#     val_acc = 100 * correct / total
+#     acc_history.append(val_acc)
+#
+#     print(f'Epoch [{epoch+1}/{num_epochs}] '
+#           f'Loss: {avg_loss:.4f} '
+#           f'Val Accuracy: {val_acc:.2f}%')
+#
+# print("训练完成!")
 
 # %%
 loss_history = []
@@ -1037,10 +1086,99 @@ transform_val = transforms.Compose([
 optimizer = optim.Adam(model.parameters(), lr=0.00001)
 
 # %%
-# 去掉 No Finding
-df_disease = df_local[df_local['label'] != 'No Finding'].copy()
-print("去掉 No Finding 后:", len(df_disease))
-print(df_disease['label'].value_counts())
+# 重新标签编码
+classes = df_disease['label'].unique().tolist()
+class_to_id = {c: i for i, c in enumerate(classes)}
+df_disease['label_id'] = df_disease['label'].map(class_to_id)
+
+print(f"类别数: {len(classes)}")
+print(f"总图片数: {len(df_disease)}")
+
+# 重建 Dataset
+train_dataset = NIHClassDataset(
+    df_disease.iloc[:int(0.8*len(df_disease))],
+    img_dir,
+    transform_train
+)
+
+val_dataset = NIHClassDataset(
+    df_disease.iloc[int(0.8*len(df_disease)):],
+    img_dir,
+    transform_val
+)
+
+# Windows Jupyter 下 num_workers 必须为 0（多进程会死锁）
+train_loader = DataLoader(
+    train_dataset,
+    batch_size=32,
+    shuffle=True,
+    num_workers=0
+)
+
+val_loader = DataLoader(
+    val_dataset,
+    batch_size=32,
+    shuffle=False,
+    num_workers=0
+)
+
+print("训练集:", len(train_dataset))
+print("验证集:", len(val_dataset))
+
+# 重新加载模型
+model = models.resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)
+model.fc = nn.Linear(model.fc.in_features, len(classes))
+model = model.to(device)
+
+optimizer = optim.Adam(model.parameters(), lr=0.0001)
+criterion = nn.CrossEntropyLoss()
+
+# 训练
+loss_history = []
+acc_history = []
+num_epochs = 5
+
+for epoch in range(num_epochs):
+    model.train()
+    running_loss = 0.0
+
+    for i, (images, labels) in enumerate(train_loader):
+        images = images.to(device)
+        labels = labels.to(device)
+
+        outputs = model(images)
+        loss = criterion(outputs, labels)
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        running_loss += loss.item()
+
+    avg_loss = running_loss / len(train_loader)
+    loss_history.append(avg_loss)
+
+    model.eval()
+    correct = 0
+    total = 0
+
+    with torch.no_grad():
+        for images, labels in val_loader:
+            images = images.to(device)
+            labels = labels.to(device)
+            outputs = model(images)
+            _, predicted = torch.max(outputs, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+    val_acc = 100 * correct / total
+    acc_history.append(val_acc)
+
+    print(f'Epoch [{epoch+1}/{num_epochs}] '
+          f'Loss: {avg_loss:.4f} '
+          f'Val Accuracy: {val_acc:.2f}%')
+
+print("训练完成!")
 
 # %%
 # 重新标签编码
